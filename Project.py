@@ -10,7 +10,7 @@ import numpy as np
 #matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from skimage.filter import (threshold_otsu, rank)
+from skimage.filter import (threshold_otsu)
 from GUI import Ui_MainWindow
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtGui import (QPixmap, QImage)
@@ -26,6 +26,10 @@ class GUI(Ui_MainWindow):
         self.histogram.clicked.connect(self.imageHistogram)
         self.GrayvalueScrollBar.valueChanged.connect(self.sliderval)
         self.OTSU.clicked.connect(self.OTSUThreshold)
+        self.MedianFilter.clicked.connect(self.medianfilter)
+        self.MeanFilter.clicked.connect(self.meanfilter)
+        self.GaussianFilter.clicked.connect(self.gaussianfilter)
+        
 
     #function menubar-file-open: Open image and show it in view1
     def imageOpen(self):
@@ -82,24 +86,54 @@ class GUI(Ui_MainWindow):
         plt.close(figure3)
         scene3=QGraphicsScene()
         scene3.addWidget(canvas3)
-        self.View4.setScene(scene3)
+        self.View3.setScene(scene3)
         self.label.setText(str(Threshold))
 
     def OTSUThreshold(self):
         img=self.image
         thresh=threshold_otsu(img)
         binary=img < thresh
-
-        plt.figure(figsize=(256,256),dpi=1)
-        plt.axis("off")
-        plt.gca().set_position([0,0,1,1])
         plt.imshow(binary,cmap='binary')
+        self.showView4()
+
+    def showView4(self):
+        plt.gca().set_position([0,0,1,1])
+        plt.axis("off")
         figure4=plt.gcf()
         canvas4=FigureCanvas(figure4)
         plt.close(figure4)
         scene4=QGraphicsScene()
         scene4.addWidget(canvas4)
-        self.View3.setScene(scene4)
+        self.View4.setScene(scene4)
+
+    def getmatrixsize(self):
+        matrixsize=3
+        if (self.radioButton.isChecked() or self.radioButton_3.isChecked() ):
+            matrixsize=3
+        if (self.radioButton_2.isChecked() or self.radioButton_4.isChecked()):
+            matrixsize=5
+        return matrixsize
+    
+    def medianfilter(self):
+        image4=ndimage.median_filter(self.image,size=self.getmatrixsize())
+        plt.figure(figsize=(256,256),dpi=1)
+        plt.imshow(image4,cmap='gray')
+        self.showView4()
+
+    def meanfilter(self):
+        image4=ndimage.uniform_filter(self.image,size=self.getmatrixsize())
+        plt.figure(figsize=(256,256),dpi=1)
+        plt.imshow(image4,cmap='gray')
+        self.showView4()
+
+    def gaussianfilter(self):
+        image4=ndimage.gaussian_filter(self.image,sigma=1)
+        plt.figure(figsize=(256,256),dpi=1)
+        plt.imshow(image4,cmap='gray')
+        self.showView4()
+
+
+
 
 if __name__=='__main__':
     app=QtWidgets.QApplication(sys.argv)
