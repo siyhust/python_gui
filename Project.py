@@ -39,6 +39,14 @@ class GUI(Ui_MainWindow):
         self.BinaryDilation.clicked.connect(self.binarydilation)
         self.actionClear_All.triggered.connect(self.clearall)
         self.DistanceTransform.clicked.connect(self.distancetransform)
+        self.Skeleton.clicked.connect(self.skeleton)
+        self.SkeletonRestoration.clicked.connect(self.skeletonrestoration)
+        self.GrayErosion.clicked.connect(self.grayerosion)
+        self.GrayDilation.clicked.connect(self.graydilation)
+        self.EdgeDetection.clicked.connect(self.edgedetection)
+        self.Gradient.clicked.connect(self.gradient)
+        self.Reconstraction_Binary.clicked.connect(self.reconstruction_binary)
+        self.Reconstraction_Gray.clicked.connect(self.reconstruction_gray)
 
     #function menubar-file-open: Open image and show it in view1
     def imageOpen(self):
@@ -57,6 +65,7 @@ class GUI(Ui_MainWindow):
         self.image_temp=self.image
         self.scene1.addPixmap(QPixmap(pix))
         self.View1.setScene(self.scene1)
+        self.clearall()
 
     #function mainwindow tab histogram-greylevel histogram: compute and show the greyvalue histogram in view 2
     def imageHistogram(self):
@@ -156,6 +165,8 @@ class GUI(Ui_MainWindow):
             matrix[2,0]=float(self.plainTextEdit3_1.toPlainText())
             matrix[2,1]=float(self.plainTextEdit3_2.toPlainText())
             matrix[2,2]=float(self.plainTextEdit3_3.toPlainText())
+            if (matrix.max()==0):
+                matrix[:,:]=1
         if (self.getmatrixsize()==5):
             matrix=np.zeros((5,5))
             matrix[0,0]=float(self.plainTextEdit1_1.toPlainText())
@@ -183,6 +194,8 @@ class GUI(Ui_MainWindow):
             matrix[4,2]=float(self.plainTextEdit5_3.toPlainText())
             matrix[4,3]=float(self.plainTextEdit5_4.toPlainText())
             matrix[4,4]=float(self.plainTextEdit5_5.toPlainText())
+            if (matrix.max()==0):
+                matrix[:,:]=1
         self.Matrix=matrix
 
     def coustomizefilter(self):
@@ -208,6 +221,7 @@ class GUI(Ui_MainWindow):
         while (self.image_temp.max()!=0):
             self.image_temp=ndimage.binary_erosion(self.image_temp,self.Matrix)
             distance=distance+self.image_temp
+        self.image_temp=self.image
         self.showView4(distance)
 
     def clearall(self):
@@ -215,6 +229,103 @@ class GUI(Ui_MainWindow):
         self.scene3.clear()
         self.scene4.clear()
         self.image_temp=self.image
+
+    def skeleton(self):
+        Size=self.image_temp.shape
+        skeleton=np.zeros(Size)
+        self.store=np.zeros(Size)
+        skeleton_remain=self.image_temp
+        i=1
+        while (skeleton_remain.max()!=0):
+            skeleton_remain=ndimage.binary_erosion(self.image_temp,np.ones([2*i-1,2*i-1]))
+            subset=skeleton_remain-ndimage.binary_opening(skeleton_remain,np.ones([3,3]))
+            skeleton=np.logical_or(skeleton,subset)
+            self.store=self.store+subset*i
+            i=i+1
+        self.showView4(skeleton)
+
+    def skeletonrestoration(self):
+        i=self.store.max()
+        Size=self.image_temp.shape
+        result=mid_result=np.zeros(Size)
+        while (i!=0):
+            index= self.store == i
+            mid_result=ndimage.binary_dilation(index,np.ones([2*i-1,2*i-1]))
+            result=np.logical_or(result,mid_result)
+            i=i-1
+        self.showView4(result)
+
+    def grayerosion(self):
+        self.getmatrix()
+        self.image_temp=ndimage.grey_erosion(self.image_temp,footprint=self.Matrix)
+        self.showView4(self.image_temp)
+
+    def graydilation(self):
+        self.getmatrix()
+        self.image_temp=ndimage.grey_dilation(self.image_temp,footprint=self.Matrix)
+        self.showView4(self.image_temp)
+
+    def getEdgeType(self):
+        Type='S'
+        if (self.S.isChecked()):
+            Type='S'
+        if (self.I.isChecked()):
+            Type='I'
+        if (self.E.isChecked()):
+            Type='E'
+        return Type
+
+    def edgedetection(self):
+        Type=self.getEdgeType()
+        Size=self.image_temp.shape
+        EdgeImage=np.zeros(Size)
+        if (Type=='S'):
+            EdgeImage=ndimage.grey_dilation(self.image_temp,footprint=np.ones([3,3]))-ndimage.grey_erosion(self.image_temp,footprint=np.ones([3,3]))
+        if (Type=='I'):
+            EdgeImage=self.image_temp-ndimage.grey_erosion(self.image_temp,footprint=np.ones([3,3]))
+        if (Type=='E'):
+            EdgeImage=ndimage.grey_dilation(self.image_temp,footprint=np.ones([3,3]))-self.image_temp
+        self.showView4(EdgeImage)
+
+    def gradient(self):
+        Type=self.getEdgeType()
+        Size=self.image_temp.shape
+        EdgeImage=np.zeros(Size)
+        if (Type=='S'):
+            EdgeImage=(ndimage.grey_dilation(self.image_temp,footprint=np.ones([3,3]))-ndimage.grey_erosion(self.image_temp,footprint=np.ones([3,3])))/2
+        if (Type=='I'):
+            EdgeImage=(self.image_temp-ndimage.grey_erosion(self.image_temp,footprint=np.ones([3,3])))/2
+        if (Type=='E'):
+            EdgeImage=(ndimage.grey_dilation(self.image_temp,footprint=np.ones([3,3]))-self.image_temp)/2
+        self.showView4(EdgeImage)
+
+    def reconstruction_binary(self):
+        Size=self.image_temp.shape
+        Mark_temp=np.zeros(Size)
+        Mark=np.zeros(Size)
+        Mark[:,112]=1
+        while ((not np.array_equal(Mark,Mark_temp))):
+            Mark_temp=Mark
+            Mark=ndimage.binary_dilation(Mark,np.ones([3,3]))
+            Mark=np.logical_and(Mark,self.image_temp)
+        self.showView4(Mark)
+
+    def reconstruction_gray(self):
+        Size=self.image_temp.shape
+        Mark_temp=np.zeros(Size)
+        Mark=np.zeros(Size)
+        Mark[:,112]=self.image_temp[:,112]
+        while ((not np.array_equal(Mark,Mark_temp))):
+            Mark_temp=Mark
+            Mark=ndimage.grey_dilation(Mark,footprint=np.ones([3,3]))
+            logical=Mark >= self.image_temp
+            Mark=Mark-Mark*logical+self.image_temp*logical
+        self.showView4(Mark)
+
+
+ 
+
+
 
 if __name__=='__main__':
     app=QtWidgets.QApplication(sys.argv)
